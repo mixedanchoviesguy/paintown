@@ -65,8 +65,10 @@ Graphics::Shader::~Shader(){
 
 class LitShader: public Graphics::Shader {
 public:
+    GLuint programId;
+
     LitShader(){
-        GLuint programId = 0;
+        // GLuint programId = 0;
         programId = glCreateProgram();
         GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
         string fragmentPath = "shaders/lit-sprite.fragment.glsl";
@@ -133,6 +135,10 @@ public:
         } catch (const Filesystem::NotFound & failure){
             DebugLog << "Could not create lit shader: " << failure.what() << endl;
         }
+    }
+
+    virtual ~LitShader(){
+        glDeleteProgram(programId);
     }
 };
 
