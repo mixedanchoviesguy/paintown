@@ -46,6 +46,7 @@ public:
 
 unique_ptr<SDLGlobalHandler> global_handler;
 
+/*
 class Shader{
 public:
     Shader(){
@@ -54,8 +55,15 @@ public:
     virtual ~Shader(){
     }
 };
+*/
 
-class LitShader: public Shader {
+Graphics::Shader::Shader(){
+}
+
+Graphics::Shader::~Shader(){
+}
+
+class LitShader: public Graphics::Shader {
 public:
     LitShader(){
         GLuint programId = 0;
@@ -82,7 +90,45 @@ public:
             } else {
                 DebugLog << "Compiled lit fragment shader" << endl;
                 glAttachShader(programId, fragmentShader);
+
+                string vertexShaderCode =
+                    "#version 330 core\n \
+                    layout(location = 0) in vec2 v2VertexPos2D;\n \
+                    void main() \n \
+                    { gl_Position = vec4(v2VertexPos2D, 0.0f, 1.0f); }";
+
+                GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
+                const char* data_v = vertexShaderCode.c_str();
+                glShaderSource(vertexShader, 1, &data_v, NULL);
+                glCompileShader(vertexShader);
+                glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &shaderCompiled);
+                if (shaderCompiled != GL_TRUE){
+                    DebugLog << "Could not compile lit vertex shader" << endl;
+                    GLint maxLength = 0;
+                    glGetShaderiv(fragmentShader, GL_INFO_LOG_LENGTH, &maxLength);
+                    vector<GLchar> errorLog(maxLength);
+                    glGetShaderInfoLog(fragmentShader, maxLength, &maxLength, &errorLog[0]);
+                    DebugLog << "Error: " << &errorLog[0] << endl;
+                    return;
+                }
+
+                glAttachShader(programId, vertexShader);
+
                 glLinkProgram(programId);
+
+                GLint programLinked = GL_FALSE;
+                glGetProgramiv(programId, GL_LINK_STATUS, &programLinked);
+                if (programLinked != GL_TRUE){
+                    DebugLog << "Could not link lit shader program" << endl;
+                    GLint maxLength = 0;
+                    glGetProgramiv(programId, GL_INFO_LOG_LENGTH, &maxLength);
+                    vector<GLchar> errorLog(maxLength);
+                    glGetProgramInfoLog(programId, maxLength, &maxLength, &errorLog[0]);
+                    DebugLog << "Error: " << &errorLog[0] << endl;
+                    // throw Filesystem::NotFound("Could not compile lit fragment shader");
+                } else {
+                    DebugLog << "Linked lit shader program" << endl;
+                }
             }
         } catch (const Filesystem::NotFound & failure){
             DebugLog << "Could not create lit shader: " << failure.what() << endl;
@@ -90,10 +136,10 @@ public:
     }
 };
 
-map<string, Shader*> shaders;
+map<string, Graphics::Shader*> shaders;
 
 static void initializeShaders(){
-    Shader* litShader = new LitShader();
+    Graphics::Shader* litShader = new LitShader();
     shaders["lit"] = litShader;
 }
 
@@ -1016,6 +1062,11 @@ void Graphics::LitBitmap::draw(const int x, const int y, const Bitmap & where) c
         return;
     }
 
+    auto it = shaders.find("lit");
+    if (it != shaders.end()){
+        const Shader* lit = it->second;
+    }
+
     // SDL_SetTextureColorMod(texture, red, green, blue);
     Bitmap::draw(x, y, where);
     // SDL_SetTextureColorMod(texture, 255, 255, 255);
@@ -1072,7 +1123,7 @@ int Graphics::setGraphicsMode(int mode, int width, int height){
     }
 
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
     SDL_GLContext glContext = SDL_GL_CreateContext(window);
